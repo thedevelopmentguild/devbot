@@ -5,6 +5,7 @@ use lazy_static::lazy_static;
 use nanoserde::{DeJson, SerJson};
 use rand::Rng;
 use redis::Commands;
+use std::process::{Command, Stdio};
 use tokio::sync::Mutex;
 
 const XP_INCREMENT_FACTOR: f32 = 1.3;
@@ -29,6 +30,17 @@ struct Data {
 
 #[tokio::main]
 async fn main() {
+    println!("Starting the server");
+    Command::new("redis-server")
+        .arg("redis.conf")
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
+
+    std::thread::sleep(std::time::Duration::from_secs(3));
+
+    println!("Starting the bot");
+
     let client = redis::Client::open("redis://127.0.0.1/").expect("Failed to connect");
     *DB.lock().await = Some(client.get_connection().expect("db isn't running"));
 
@@ -46,7 +58,7 @@ async fn main() {
     .await;
 
     client.register_events(vec![ready(), message_create()]);
-    client.register_commands(vec![leaderboard(), erase()]);
+    client.register_commands(vec![leaderboard(), erase(), rank()]);
     // client.register_slash_commands(vec![leaderboard()]).await;
 
     client.login().await;
@@ -107,10 +119,8 @@ async fn message_create(msg: Message) {
             if userdata.xp > next_level_xp(userdata.level) {
                 userdata.xp = 0;
                 userdata.level += 1;
-                println!("sending");
                 msg.reply(format!(
-                    "You leveled up!\n{} -> {}\n XP: 0/{}",
-                    userdata.level - 1,
+                    "> You just reached level **{}**!\n > XP: 0/{}",
                     userdata.level,
                     next_level_xp(userdata.level),
                 ))
@@ -129,29 +139,101 @@ async fn message_create(msg: Message) {
 }
 
 #[descord::command(prefix = "!")]
-async fn leaderboard(msg: Message) {
+async fn rank(msg: Message) {
+    let author = msg.author.as_ref().unwrap();
+
     let list: Vec<(String, String)> = db!()
         .hgetall(msg.guild_id.as_ref().unwrap())
         .unwrap_or_default();
+
     if list.is_empty() {
         msg.reply("No messages yet :(").await;
         return;
     }
 
-    let mut embed = EmbedBuilder::new()
-        .color(Color::Orange)
-        .title("List of commands");
+    let mut users = list
+        .iter()
+        .map(|(_, i)| Data::deserialize_json(i).unwrap())
+        .collect::<Vec<_>>();
 
-    for (_, out) in list {
-        let data = Data::deserialize_json(&out).unwrap();
-        embed = embed.field(
-            &data.username,
-            &format!("LVL {}, {} XP", data.level, data.xp),
-            false,
-        );
+    users.sort_unstable_by(|a, b| b.level.cmp(&a.level));
+
+    if let Some((rank, userdata)) = users
+        .iter()
+        .enumerate()
+        .find(|(_, data)| data.user_id == author.id)
+    {
+        let embed = EmbedBuilder::new()
+            .title(&format!("{}'s rank", msg.author.as_ref().unwrap().username))
+            .color(Color::Orange)
+            .image(
+                author.get_avatar_url(ImageFormat::WebP, None).unwrap(),
+                None,
+                None,
+            )
+            .description(&format!("Rank: #{}", rank + 1))
+            .field("Level", &userdata.level.to_string(), true)
+            .field(
+                "XP",
+                &format!("{}/{}", userdata.xp, next_level_xp(userdata.level)),
+                true,
+            )
+            .build();
+
+        msg.reply(embed).await;
+    } else {
+        msg.reply("You have 0 xp lol").await;
+    }
+}
+
+#[descord::command(prefix = "!")]
+async fn leaderboard(msg: Message) {
+    let list: Vec<(String, String)> = db!()
+        .hgetall(msg.guild_id.as_ref().unwrap())
+        .unwrap_or_default();
+
+    if list.is_empty() {
+        msg.reply("No messages yet :(").await;
+        return;
     }
 
-    let embed = embed.build();
+    let mut users = list
+        .iter()
+        .map(|(_, i)| Data::deserialize_json(i).unwrap())
+        .collect::<Vec<_>>();
+    users.sort_unstable_by(|a, b| b.level.cmp(&a.level));
+
+    let embed = EmbedBuilder::new()
+        .color(Color::Cyan)
+        .title(
+            &utils::fetch_guild(msg.guild_id.as_ref().unwrap())
+                .await
+                .unwrap()
+                .name,
+        )
+        .fields(
+            users
+                .into_iter()
+                .take(10)
+                .enumerate()
+                .map(
+                    |(
+                        rank,
+                        Data {
+                            username,
+                            level,
+                            xp,
+                            ..
+                        },
+                    )| EmbedField {
+                        name: format!("#{} - {username}", rank + 1),
+                        value: format!("LVL: {level}, XP: {xp}"),
+                        inline: false,
+                    },
+                )
+                .collect(),
+        )
+        .build();
 
     msg.reply(embed).await;
 }
