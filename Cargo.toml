@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.38"
 descord = { git = "https://github.com/DescordLib/descord", version = "0.1.10" }
 dotenvy = "0.15.7"
 env_logger = "0.11.5"
 lazy_static = "1.5.0"
+nanoserde = "0.1.37"
+rand = "0.8.5"
+redis = { version = "0.27.5", features = ["tokio-comp"] }
 tokio = { version = "1.36.0", features = ["full"] }
