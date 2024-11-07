@@ -1,2 +1,2 @@
 #!/bin/sh
-docker run -t devbot --env-file .env
+docker run --env-file .env -t devbot
