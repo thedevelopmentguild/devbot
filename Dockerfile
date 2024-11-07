@@ -1,12 +1,15 @@
-FROM archlinux:latest
+FROM rust:latest AS builder
+COPY . .
+RUN cargo build --release
+
+FROM redis:latest
 WORKDIR /bot
+RUN apt-get update && apt-get install -y openssl
 
-COPY target/release/devbot .
-COPY start-bot.sh .
+COPY --from=builder ./target/release/devbot ./devbot
 COPY redis.conf .
-COPY .env .
 
-RUN chmod +x devbot
-RUN pacman -Sy redis --noconfirm
+COPY start-bot.sh .
+RUN chmod +x start-bot.sh
 
 CMD ["./start-bot.sh"]
