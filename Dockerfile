@@ -1,12 +1,14 @@
+FROM rust:latest AS builder
+COPY . .
+RUN cargo build --release
+
 FROM archlinux:latest
 WORKDIR /bot
-
-COPY target/release/devbot .
-COPY start-bot.sh .
-COPY redis.conf .
-COPY .env .
-
-RUN chmod +x devbot
 RUN pacman -Sy redis --noconfirm
+
+COPY --from=builder ./target/release/devbot ./devbot
+COPY redis.conf .
+COPY start-bot.sh .
+RUN chmod +x start-bot.sh
 
 CMD ["./start-bot.sh"]
