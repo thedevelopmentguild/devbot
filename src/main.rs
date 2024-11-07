@@ -1,15 +1,37 @@
 use descord::prelude::*;
-use lazy_static::lazy_static;
 
-use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+use lazy_static::lazy_static;
+use nanoserde::{DeJson, SerJson};
+use rand::Rng;
+use redis::Commands;
 use tokio::sync::Mutex;
 
+const XP_INCREMENT_FACTOR: f32 = 1.3;
+const INITIAL_XP: u32 = 100;
+
 lazy_static! {
-    static ref MAP: Mutex<HashMap<String, (String, usize)>> = Mutex::new(HashMap::new());
+    pub static ref DB: Mutex<Option<redis::Connection>> = Mutex::new(None);
+}
+
+macro_rules! db {
+    [] => { DB.lock().await.as_mut().unwrap() };
+}
+
+#[derive(DeJson, SerJson)]
+struct Data {
+    username: String,
+    user_id: String,
+    level: u32,
+    xp: u32,
+    time: usize,
 }
 
 #[tokio::main]
 async fn main() {
+    let client = redis::Client::open("redis://127.0.0.1/").expect("Failed to connect");
+    *DB.lock().await = Some(client.get_connection().expect("db isn't running"));
+
     if dotenvy::dotenv().is_err() {
         eprintln!(".env file is not found");
     }
@@ -24,7 +46,8 @@ async fn main() {
     .await;
 
     client.register_events(vec![ready(), message_create()]);
-    client.register_slash_commands(vec![leaderboard()]).await;
+    client.register_commands(vec![leaderboard(), erase()]);
+    // client.register_slash_commands(vec![leaderboard()]).await;
 
     client.login().await;
 }
@@ -44,24 +67,108 @@ async fn message_create(msg: Message) {
         return;
     }
 
-    let mut binding = MAP.lock().await;
-    let entry = binding.entry(author.id.clone()).or_default();
-    entry.0 = author.username.clone();
-    entry.1 += 1;
+    let time: DateTime<Utc> = msg.timestamp.as_ref().unwrap().parse().unwrap();
+    let epoch_time = time.timestamp();
+    let username = author.username.clone();
+    let user_id = author.id.clone();
+
+    let userdata: Option<String> = db!()
+        .hget(msg.guild_id.as_ref().unwrap(), &user_id)
+        .unwrap();
+
+    let xp = get_xp();
+
+    // add user entry if it doesn't already exists
+    if userdata.is_none() {
+        let _: () = db!()
+            .hset(
+                msg.guild_id.as_ref().unwrap(),
+                user_id.clone(),
+                Data {
+                    username,
+                    user_id,
+                    level: 0,
+                    xp,
+                    time: epoch_time as _,
+                }
+                .serialize_json(),
+            )
+            .unwrap();
+    } else {
+        let userdata = userdata.unwrap();
+        let mut userdata = Data::deserialize_json(&userdata).unwrap();
+        let current_time = chrono::Utc::now().timestamp();
+        let last_message_time = userdata.time;
+
+        // only give xp if a minute has passed since the last message
+        if current_time - last_message_time as i64 > 60 {
+            userdata.xp += xp;
+            userdata.time = current_time as _;
+            if userdata.xp > next_level_xp(userdata.level) {
+                userdata.xp = 0;
+                userdata.level += 1;
+                println!("sending");
+                msg.reply(format!(
+                    "You leveled up!\n{} -> {}\n XP: 0/{}",
+                    userdata.level - 1,
+                    userdata.level,
+                    next_level_xp(userdata.level),
+                ))
+                .await;
+            }
+        }
+
+        let _: () = db!()
+            .hset(
+                msg.guild_id.as_ref().unwrap(),
+                user_id.clone(),
+                userdata.serialize_json(),
+            )
+            .unwrap();
+    }
 }
 
-#[descord::slash]
-async fn leaderboard(int: Interaction) {
-    let mut map = MAP.lock().await.clone().into_iter().collect::<Vec<_>>();
-    map.sort_unstable_by(|(_, (_, a)), (_, (_, b))| b.cmp(a));
-
-    let mut embed = EmbedBuilder::new()
-        .title("Message leaderboard")
-        .color(Color::Orange);
-
-    for (_user_id, (username, message_count)) in map.iter().take(10) {
-        embed = embed.field(username, &message_count.to_string(), false);
+#[descord::command(prefix = "!")]
+async fn leaderboard(msg: Message) {
+    let list: Vec<(String, String)> = db!()
+        .hgetall(msg.guild_id.as_ref().unwrap())
+        .unwrap_or_default();
+    if list.is_empty() {
+        msg.reply("No messages yet :(").await;
+        return;
     }
 
-    int.reply(embed.build(), false).await;
+    let mut embed = EmbedBuilder::new()
+        .color(Color::Orange)
+        .title("List of commands");
+
+    for (_, out) in list {
+        let data = Data::deserialize_json(&out).unwrap();
+        embed = embed.field(
+            &data.username,
+            &format!("LVL {}, {} XP", data.level, data.xp),
+            false,
+        );
+    }
+
+    let embed = embed.build();
+
+    msg.reply(embed).await;
+}
+
+// FOR TESTING
+#[descord::command(prefix = "!")]
+async fn erase(msg: Message) {
+    let _: () = db!().del(msg.guild_id.as_ref().unwrap()).unwrap();
+    msg.reply("Wiping database").await;
+}
+
+#[inline(always)]
+fn get_xp() -> u32 {
+    rand::thread_rng().gen_range(10..20)
+}
+
+#[inline(always)]
+fn next_level_xp(current_level: u32) -> u32 {
+    (INITIAL_XP as f32 * XP_INCREMENT_FACTOR.powi(current_level as _)) as _
 }
