@@ -6,7 +6,6 @@ COPY start-bot.sh .
 COPY redis.conf .
 COPY .env .
 
-RUN mkdir redis
 RUN chmod +x devbot
 RUN pacman -Sy redis --noconfirm
 
