@@ -58,8 +58,10 @@ async fn main() {
     .await;
 
     client.register_events(vec![ready(), message_create()]);
-    client.register_commands(vec![leaderboard(), erase(), rank()]);
-    // client.register_slash_commands(vec![leaderboard()]).await;
+    client.register_commands(vec![erase()]);
+    client
+        .register_slash_commands(vec![leaderboard(), rank()])
+        .await;
 
     client.login().await;
 }
@@ -138,16 +140,14 @@ async fn message_create(msg: Message) {
     }
 }
 
-#[descord::command(prefix = "!")]
-async fn rank(msg: Message) {
-    let author = msg.author.as_ref().unwrap();
+#[descord::slash(description = "View your (or someone else's) rank in this server.")]
+async fn rank(int: Interaction, #[doc = "User to fetch avatar from"] user: Option<User>) {
+    let user = user.as_ref().unwrap_or_else(|| int.user.as_ref().unwrap());
 
-    let list: Vec<(String, String)> = db!()
-        .hgetall(msg.guild_id.as_ref().unwrap())
-        .unwrap_or_default();
+    let list: Vec<(String, String)> = db!().hgetall(&int.guild_id).unwrap_or_default();
 
     if list.is_empty() {
-        msg.reply("No messages yet :(").await;
+        int.reply("No messages yet :(", true).await;
         return;
     }
 
@@ -161,13 +161,13 @@ async fn rank(msg: Message) {
     if let Some((rank, userdata)) = users
         .iter()
         .enumerate()
-        .find(|(_, data)| data.user_id == author.id)
+        .find(|(_, data)| data.user_id == user.id)
     {
         let embed = EmbedBuilder::new()
-            .title(&format!("{}'s rank", msg.author.as_ref().unwrap().username))
+            .title(&format!("{}'s rank", int.user.as_ref().unwrap().username))
             .color(Color::Orange)
             .image(
-                author.get_avatar_url(ImageFormat::WebP, None).unwrap(),
+                user.get_avatar_url(ImageFormat::WebP, None).unwrap(),
                 None,
                 None,
             )
@@ -180,20 +180,18 @@ async fn rank(msg: Message) {
             )
             .build();
 
-        msg.reply(embed).await;
+        int.reply(embed, false).await;
     } else {
-        msg.reply("You have 0 xp lol").await;
+        int.reply("You have 0 xp lol", true).await;
     }
 }
 
-#[descord::command(prefix = "!")]
-async fn leaderboard(msg: Message) {
-    let list: Vec<(String, String)> = db!()
-        .hgetall(msg.guild_id.as_ref().unwrap())
-        .unwrap_or_default();
+#[descord::slash(description = "Displays the the list of two 10 users in this server.")]
+async fn leaderboard(int: Interaction) {
+    let list: Vec<(String, String)> = db!().hgetall(&int.guild_id).unwrap_or_default();
 
     if list.is_empty() {
-        msg.reply("No messages yet :(").await;
+        int.reply("No messages yet :(", true).await;
         return;
     }
 
@@ -205,12 +203,7 @@ async fn leaderboard(msg: Message) {
 
     let embed = EmbedBuilder::new()
         .color(Color::Cyan)
-        .title(
-            &utils::fetch_guild(msg.guild_id.as_ref().unwrap())
-                .await
-                .unwrap()
-                .name,
-        )
+        .title(&utils::fetch_guild(&int.guild_id).await.unwrap().name)
         .fields(
             users
                 .into_iter()
@@ -235,11 +228,11 @@ async fn leaderboard(msg: Message) {
         )
         .build();
 
-    msg.reply(embed).await;
+    int.reply(embed, false).await;
 }
 
 // FOR TESTING
-#[descord::command(prefix = "!")]
+#[descord::command(prefix = "!", permissions = "administrator")]
 async fn erase(msg: Message) {
     let _: () = db!().del(msg.guild_id.as_ref().unwrap()).unwrap();
     msg.reply("Wiping database").await;
