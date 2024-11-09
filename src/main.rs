@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use descord::prelude::*;
 
 use chrono::{DateTime, Utc};
@@ -130,7 +132,9 @@ async fn message_create(msg: Message) {
 
 #[descord::slash(description = "View your (or someone else's) rank in this server.")]
 async fn rank(int: Interaction, #[doc = "User to fetch avatar from"] user: Option<User>) {
-    let user = user.as_ref().unwrap_or_else(|| int.user.as_ref().unwrap());
+    let user = user
+        .as_ref()
+        .unwrap_or_else(|| int.member.as_ref().unwrap().user.as_ref().unwrap());
 
     let list: Vec<(String, String)> = db!().hgetall(&int.guild_id).unwrap_or_default();
 
@@ -144,7 +148,12 @@ async fn rank(int: Interaction, #[doc = "User to fetch avatar from"] user: Optio
         .map(|(_, i)| Data::deserialize_json(i).unwrap())
         .collect::<Vec<_>>();
 
-    users.sort_unstable_by(|a, b| b.level.cmp(&a.level));
+    users.sort_unstable_by(|a, b| {
+        match b.level.cmp(&a.level) {
+            Ordering::Equal => b.xp.cmp(&a.xp),
+            x => x
+        }
+    });
 
     if let Some((rank, userdata)) = users
         .iter()
@@ -152,7 +161,7 @@ async fn rank(int: Interaction, #[doc = "User to fetch avatar from"] user: Optio
         .find(|(_, data)| data.user_id == user.id)
     {
         let embed = EmbedBuilder::new()
-            .title(&format!("{}'s rank", int.user.as_ref().unwrap().username))
+            .title(&format!("{}'s rank", user.username))
             .color(Color::Orange)
             .image(
                 user.get_avatar_url(ImageFormat::WebP, None).unwrap(),
