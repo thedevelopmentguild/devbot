@@ -209,7 +209,10 @@ async fn leaderboard(int: Interaction) {
         .filter_map(|i| i.ok()) // that's why we need to filter
         .collect::<Vec<_>>();
 
-    users.sort_unstable_by(|a, b| b.level.cmp(&a.level));
+    users.sort_unstable_by(|a, b| match b.level.cmp(&a.level) {
+        Ordering::Equal => b.xp.cmp(&a.xp),
+        x => x,
+    });
 
     let embed = EmbedBuilder::new()
         .color(Color::Cyan)
