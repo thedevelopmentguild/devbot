@@ -265,8 +265,8 @@ async fn setup_roles(msg: Message) {
     for (i, (level, role_name)) in roles
         .clone()
         .into_iter()
-        .rev()
         .enumerate()
+        .rev()
         .map(|(a, b)| (a * 5, b))
         .enumerate()
     {
@@ -416,6 +416,4 @@ async fn assign_role(guild_id: &str, user_id: &str, level: u32) {
         .expect("I didn't create this many roles lol");
 
     utils::add_role(guild_id, user_id, role_id).await.unwrap();
-
-    println!("Role assigned!");
 }
