@@ -12,7 +12,7 @@ pub async fn setup_roles(msg: Message) {
     let initial = "Creating roles!";
     let msg = msg.reply(initial).await;
 
-    let mut roles = Vec::with_capacity(8);
+    let mut roles = Vec::with_capacity((NUM_ROLES / 5) as _);
     for level in (0..=NUM_ROLES).step_by(5) {
         roles.push(format!("Level {level}"));
     }
