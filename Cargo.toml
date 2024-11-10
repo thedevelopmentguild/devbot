@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-descord = { git = "https://github.com/DescordLib/descord", version = "0.1.11" }
+descord = { version = "0.1.11", git = "https://github.com/DescordLib/descord" }
 chrono = "0.4.38"
 dotenvy = "0.15.7"
 env_logger = "0.11.5"
