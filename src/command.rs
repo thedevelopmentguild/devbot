@@ -16,6 +16,13 @@ pub async fn reboot(msg: Message) {
     }
 }
 
+#[descord::command]
+pub async fn ping(msg: Message) {
+    let clock = std::time::Instant::now();
+    let msg = msg.reply("Pong!").await;
+    msg.edit(format!("Pong! `{}ms`", clock.elapsed().as_millis())).await;
+}
+
 #[descord::command(prefix = "!", permissions = "manage_roles")]
 pub async fn setup_roles(msg: Message) {
     let guild_id = msg.guild_id.as_ref().unwrap().clone();
