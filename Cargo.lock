@@ -306,8 +306,8 @@ checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
 
 [[package]]
 name = "descord"
-version = "0.1.10"
-source = "git+https://github.com/DescordLib/descord#c4376ada43312048a4ea11008d2e828bd8b99828"
+version = "0.1.11"
+source = "git+https://github.com/DescordLib/descord#cd90444e3bc79be9c5d71f9c7b1f48505a7672f5"
 dependencies = [
  "chrono",
  "descord-macros",
@@ -327,8 +327,8 @@ dependencies = [
 
 [[package]]
 name = "descord-macros"
-version = "0.1.4"
-source = "git+https://github.com/DescordLib/descord#c4376ada43312048a4ea11008d2e828bd8b99828"
+version = "0.1.5"
+source = "git+https://github.com/DescordLib/descord#cd90444e3bc79be9c5d71f9c7b1f48505a7672f5"
 dependencies = [
  "darling",
  "proc-macro2",
