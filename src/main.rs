@@ -339,15 +339,7 @@ async fn set_level(
             &int.guild_id,
             &user.id,
             Data {
-                username: int
-                    .member
-                    .as_ref()
-                    .unwrap()
-                    .user
-                    .as_ref()
-                    .unwrap()
-                    .username
-                    .clone(),
+                username: user.username.clone(),
                 user_id: user.id.clone(),
                 time: current_time as _,
                 level: *level as _,
