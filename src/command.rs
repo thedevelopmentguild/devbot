@@ -1,5 +1,21 @@
 use super::*;
 
+// User id of people who manage the bot
+// thatmagicalcat. and duskyelf
+const MANAGERS: [&str; 2] = [
+    "815189874478546954",
+    "820957214264000513"
+];
+
+#[descord::command]
+pub async fn reboot(msg: Message) {
+    let userid = msg.author.as_ref().unwrap().id.as_str();
+    if userid == MANAGERS[0] || userid == MANAGERS[1] {
+        msg.reply("Restarting the bot").await;
+        std::process::exit(0);
+    }
+}
+
 #[descord::command(prefix = "!", permissions = "manage_roles")]
 pub async fn setup_roles(msg: Message) {
     let guild_id = msg.guild_id.as_ref().unwrap().clone();

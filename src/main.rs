@@ -57,6 +57,7 @@ async fn main() {
 
     client.register_events(vec![event::ready(), event::message_create()]);
     client.register_commands(vec![
+        command::reboot(),
         command::erase(),
         command::setup_roles(),
         command::delete_roles(),
