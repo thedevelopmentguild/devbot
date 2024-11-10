@@ -9,7 +9,7 @@ use rand::Rng;
 use redis::Commands;
 use tokio::sync::Mutex;
 
-const XP_INCREMENT_FACTOR: f32 = 1.3;
+const XP_INCREMENT_FACTOR: f32 = 1.123;
 const INITIAL_XP: u32 = 100;
 const NUM_ROLES: u32 = 50; // 50 / 5 = 10 roles
 
