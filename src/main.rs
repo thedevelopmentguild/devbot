@@ -9,6 +9,7 @@ use nanoserde::{DeJson, SerJson};
 use rand::Rng;
 use redis::Commands;
 use tokio::sync::Mutex;
+use tokio::time::Duration;
 
 mod command;
 mod event;
@@ -17,6 +18,7 @@ mod slash_command;
 const XP_INCREMENT_FACTOR: f32 = 1.123;
 const INITIAL_XP: u32 = 100;
 const NUM_ROLES: u32 = 50; // 50 / 5 = 10 roles
+const VANISH_TIME: u32 = 5;
 
 lazy_static! {
     pub static ref DB: Mutex<Option<redis::Connection>> = Mutex::new(None);
@@ -93,4 +95,9 @@ pub async fn assign_role(guild_id: &str, user_id: &str, level: u32) {
         .expect("I didn't create this many roles lol");
 
     utils::add_role(guild_id, user_id, role_id).await.unwrap();
+}
+
+pub async fn vanish(msg: Message) {
+    tokio::time::sleep(Duration::from_secs(VANISH_TIME as _)).await;
+    msg.delete().await;
 }

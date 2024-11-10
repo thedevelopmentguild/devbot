@@ -65,11 +65,14 @@ pub async fn message_create(msg: Message) {
                     assign_role(msg.guild_id.as_ref().unwrap(), &author.id, userdata.level).await;
                 }
 
-                msg.reply(format!(
-                    "> You just reached level **{}**!\n > XP: 0/{}",
-                    userdata.level,
-                    next_level_xp(userdata.level),
-                ))
+                vanish(
+                    msg.reply(format!(
+                        "> You just reached level **{}**!\n > XP: 0/{}",
+                        userdata.level,
+                        next_level_xp(userdata.level),
+                    ))
+                    .await,
+                )
                 .await;
             }
         }
