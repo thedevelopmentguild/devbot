@@ -102,7 +102,10 @@ pub async fn leaderboard(int: Interaction) {
     int.reply(embed, false).await;
 }
 
-#[descord::slash(description = "Set a user's level, sets xp to zero")]
+#[descord::slash(
+    description = "Set a user's level, sets xp to zero",
+    permissions = "administrator"
+)]
 pub async fn set_level(
     int: Interaction,
     #[doc = "User to assign the level"] user: User,

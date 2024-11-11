@@ -2,12 +2,9 @@ use super::*;
 
 // User id of people who manage the bot
 // thatmagicalcat. and duskyelf
-const MANAGERS: [&str; 2] = [
-    "815189874478546954",
-    "820957214264000513"
-];
+const MANAGERS: [&str; 2] = ["815189874478546954", "820957214264000513"];
 
-#[descord::command]
+#[descord::command(description = "Reboot the bot")]
 pub async fn reboot(msg: Message) {
     let userid = msg.author.as_ref().unwrap().id.as_str();
     if userid == MANAGERS[0] || userid == MANAGERS[1] {
@@ -16,14 +13,19 @@ pub async fn reboot(msg: Message) {
     }
 }
 
-#[descord::command]
+#[descord::command(description = "Bot's latency")]
 pub async fn ping(msg: Message) {
     let clock = std::time::Instant::now();
     let msg = msg.reply("Pong!").await;
-    msg.edit(format!("Pong! `{}ms`", clock.elapsed().as_millis())).await;
+    msg.edit(format!("Pong! `{}ms`", clock.elapsed().as_millis()))
+        .await;
 }
 
-#[descord::command(prefix = "!", permissions = "manage_roles")]
+#[descord::command(
+    prefix = "!",
+    permissions = "manage_roles",
+    description = "Create level roles"
+)]
 pub async fn setup_roles(msg: Message) {
     let guild_id = msg.guild_id.as_ref().unwrap().clone();
     if db!().hexists(&guild_id, "roles").unwrap() {
@@ -80,7 +82,11 @@ pub async fn setup_roles(msg: Message) {
         .unwrap();
 }
 
-#[descord::command(prefix = "!", permissions = "manage_roles")]
+#[descord::command(
+    prefix = "!",
+    permissions = "manage_roles",
+    description = "Delete the level roles created in the server"
+)]
 pub async fn delete_roles(msg: Message) {
     let Ok(Some(roles)): redis::RedisResult<Option<String>> =
         db!().hget(msg.guild_id.as_ref().unwrap(), "roles")
@@ -136,7 +142,7 @@ pub async fn assign_roles(msg: Message) {
 }
 
 // FOR TESTING
-#[descord::command(prefix = "!", permissions = "administrator")]
+#[descord::command(prefix = "!", permissions = "administrator", description = "Wipe the enitre database :skull:")]
 pub async fn erase(msg: Message) {
     msg.reply("wiping the database :skull:").await;
     let _: () = db!().del(msg.guild_id.as_ref().unwrap()).unwrap();
