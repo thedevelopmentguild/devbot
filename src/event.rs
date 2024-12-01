@@ -9,6 +9,66 @@ pub async fn ready(data: ReadyData) {
 }
 
 #[descord::event]
+pub async fn guild_create(guild: GuildCreate) {
+    let users = guild.members;
+    let mut binding = DB.lock().await;
+    let db = binding.as_mut().unwrap();
+
+    for user in users {
+        let user_id = &user.user.as_ref().unwrap().id;
+        let user = user.user.as_ref().unwrap();
+        let exists: bool = db.hexists(&guild.id, &user_id).unwrap();
+
+        if !exists {
+            let _: () = db
+                .hset(
+                    &guild.id,
+                    user_id,
+                    Data {
+                        username: user.username.clone(),
+                        user_id: user_id.to_string(),
+                        level: 0,
+                        xp: 0,
+                        time: 0,
+                    }
+                    .serialize_json(),
+                )
+                .unwrap();
+        }
+    }
+}
+
+#[descord::event]
+pub async fn member_join(member: Member) {
+    println!("{:?}", member);
+    let user = member.user.as_ref().unwrap();
+    let user_id = user.id.clone();
+    let username = user.username.clone();
+
+    let _: () = db!()
+        .hset(
+            member.guild_id.as_ref().unwrap(),
+            user_id.clone(),
+            Data {
+                username,
+                user_id,
+                level: 0,
+                xp: 0,
+                time: 0,
+            }
+            .serialize_json(),
+        )
+        .unwrap();
+}
+
+#[descord::event]
+pub async fn member_leave(member: MemberLeave) {
+    let id = member.user.id;
+    let guild_id = member.guild_id;
+    let _: () = db!().hdel(guild_id, id).unwrap();
+}
+
+#[descord::event]
 pub async fn message_create(msg: Message) {
     let author = msg.author.as_ref().unwrap();
     if author.bot {

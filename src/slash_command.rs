@@ -1,5 +1,64 @@
 use super::*;
 
+#[descord::slash(description = "Kick people below a certain level")]
+pub async fn kick(int: Interaction, #[doc = "The min level required"] level: isize) {
+    if *level < 0 {
+        int.reply("Negative level?!?!", true).await;
+        return;
+    }
+
+    let required_level = *level as u32;
+
+    let list: Vec<(String, String)> = db!().hgetall(&int.guild_id).unwrap_or_default();
+
+    if list.is_empty() {
+        int.reply("No messages yet :(", true).await;
+        return;
+    }
+
+    let mut users = list
+        .iter()
+        .map(|(_, i)| Data::deserialize_json(i)) // SAFETY: it will fail to parse
+        .filter_map(|i| i.ok()) // that's why we need to filter
+        .collect::<Vec<_>>();
+
+    users.sort_unstable_by(|a, b| match a.level.cmp(&b.level) {
+        Ordering::Equal => a.xp.cmp(&b.xp),
+        x => x,
+    });
+
+    let users_below_min_level = users
+        .iter()
+        .filter(|user| user.level < required_level)
+        .collect::<Vec<_>>();
+
+    let embed = EmbedBuilder::new()
+        .title(&format!("Members below {required_level} level"))
+        .color(Color::Red)
+        .description(
+            &users_below_min_level
+                .into_iter()
+                .map(|i| format!("<@{}>", i.user_id))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ).build();
+
+    let button: Component = ComponentBuilder::button(ButtonObject {
+        style: ButtonStyle::Danger as _,
+        label: Some("Kick all the people mentioned above".to_string()),
+        custom_id: Some("kick_all".to_string()),
+        ..Default::default()
+    })
+    .unwrap();
+
+    let mut msg = CreateMessageData::default();
+    msg.embeds.push(embed);
+    msg.content = "Do you really want to kick all these people?".to_string();
+
+    int.reply(msg.add_components(vec![vec![button]]), true)
+        .await;
+}
+
 #[descord::slash(description = "View your (or someone else's) rank in this server.")]
 pub async fn rank(int: Interaction, #[doc = "User to fetch avatar from"] user: Option<User>) {
     let user = user

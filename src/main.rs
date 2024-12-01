@@ -57,7 +57,14 @@ async fn main() {
     )
     .await;
 
-    client.register_events(vec![event::ready(), event::message_create()]);
+    client.register_events(vec![
+        event::ready(),
+        event::message_create(),
+        event::guild_create(),
+        event::member_join(),
+        event::member_leave(),
+    ]);
+
     client.register_commands(vec![
         command::ping(),
         command::reboot(),
@@ -69,13 +76,44 @@ async fn main() {
 
     client
         .register_slash_commands(vec![
+            slash_command::kick(),
             slash_command::leaderboard(),
             slash_command::rank(),
             slash_command::set_level(),
         ])
         .await;
 
+    client.register_component_callbacks(vec![kick_callback()]);
+
     client.login().await;
+}
+
+#[descord::component(id = "kick_all")]
+async fn kick_callback(int: Interaction) {
+    int.defer().await;
+    int.message
+        .as_ref()
+        .unwrap()
+        .embeds
+        .first()
+        .unwrap()
+        .description
+        .as_ref()
+        .unwrap()
+        .split("\n")
+        .map(|i| i.trim_matches(['<', '@', '>']).to_string())
+        .for_each(|user_id| {
+            let guild_id = int.guild_id.clone();
+            tokio::spawn(async move {
+                utils::kick_member(
+                    &guild_id,
+                    &user_id,
+                    Some("User level below minimum".to_string()),
+                ).await.unwrap();
+            });
+        });
+
+    int.followup("Kicked").await;
 }
 
 #[inline(always)]
